@@ -97,9 +97,9 @@ type Handle struct {
 	// Used samples format (size, endianness, signed).
 	SampleFormat SampleFormat
 	// Sample rate in Hz. Usual 44100.
-	SampleRate uint
+	SampleRate int
 	// Channels in the stream. 2 for stereo.
-	Channels uint
+	Channels int
 }
 
 // New returns newly initialized ALSA handler.
@@ -192,20 +192,26 @@ func (handle *Handle) Wait(maxDelay int) os.Error {
 	return nil
 }
 
-// AvailUpdate returns number of frames ready to be read/written.
-func (handle *Handle) AvailUpdate() int {
-	return int(C.snd_pcm_avail_update(handle.cHandle))
+// AvailUpdate returns number of bytes ready to be read/written.
+func (handle *Handle) AvailUpdate() (freeBytes int, err os.Error) {
+	frames := C.snd_pcm_avail_update(handle.cHandle)
+	if frames < 0 {
+		return 0, os.NewError(fmt.Sprintf("Retriving free buffer size failed. %s", strError(_Ctype_int(frames))))
+	}
+
+	return int(frames) * handle.FrameSize(), nil
 }
 
-// Writei writes given PCM data.
-func (handle *Handle) Writei(buf []int8) (wrote int, err os.Error) {
-	frames := uint(len(buf)) / handle.SampleSize() / handle.Channels
+// Write writes given PCM data.
+// Returns wrote value is total bytes was written.
+func (handle *Handle) Write(buf []byte) (wrote int, err os.Error) {
+	frames := len(buf) / handle.SampleSize() / handle.Channels
 	wrote = int(C.snd_pcm_writei(handle.cHandle, unsafe.Pointer(&buf[0]), _Ctypedef_snd_pcm_uframes_t(frames)))
 	if wrote < 0 {
 		return 0, os.NewError(fmt.Sprintf("Write failed. %s", strError(_Ctype_int(wrote))))
 	}
 
-	// TODO: Convert wrote frames to bytes.
+	wrote *= handle.FrameSize()
 
 	return wrote, nil
 }
@@ -216,7 +222,7 @@ func (handle *Handle) Close() {
 }
 
 // SampleSize returns one sample size in bytes.
-func (handle *Handle) SampleSize() uint {
+func (handle *Handle) SampleSize() int {
 	switch handle.SampleFormat {
 	case SampleFormatS8, SampleFormatU8:
 		return 1
@@ -228,6 +234,12 @@ func (handle *Handle) SampleSize() uint {
 	return 1
 }
 
+// FrameSize returns size of one frame in bytes.
+func (handle *Handle) FrameSize() int {
+	return handle.SampleSize() * handle.Channels
+}
+
+// strError retruns string description of ALSA error by its code.
 func strError(err _Ctype_int) string {
 	cErrMsg := C.snd_strerror(err)
 
