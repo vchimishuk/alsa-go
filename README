@@ -1,0 +1,10 @@
+NAME
+    alsa is a Go wrapper package for C alsa library.
+
+AUTHORS
+    Viacheslav Chumushuk <voice@root.ua>
+
+COPYING
+    This programm is released under the GNU General Public License version 3 or later, which is
+    distributed in the COPYING file. You should have received a copy of the GNU General Public License along with
+    this program.  If not, see <http://www.gnu.org/licenses/>.
