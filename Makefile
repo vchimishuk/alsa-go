@@ -7,9 +7,6 @@ CGOFILES=\
 
 CGO_LDFLAGS=-lasound
 
-#CGO_OFILES=\
-#        id3_hlp.o\
-
 include $(GOROOT)/src/Make.pkg
 
 format:
