@@ -1,6 +1,6 @@
 include $(GOROOT)/src/Make.inc
 
-TARG=id3tag
+TARG=alsa
 
 CGOFILES=\
         alsa.go\
