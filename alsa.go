@@ -207,14 +207,42 @@ func (handle *Handle) AvailUpdate() (freeBytes int, err os.Error) {
 // Returns wrote value is total bytes was written.
 func (handle *Handle) Write(buf []byte) (wrote int, err os.Error) {
 	frames := len(buf) / handle.SampleSize() / handle.Channels
-	wrote = int(C.snd_pcm_writei(handle.cHandle, unsafe.Pointer(&buf[0]), _Ctypedef_snd_pcm_uframes_t(frames)))
-	if wrote < 0 {
-		return 0, os.NewError(fmt.Sprintf("Write failed. %s", strError(_Ctype_int(wrote))))
+	w := C.snd_pcm_writei(handle.cHandle, unsafe.Pointer(&buf[0]), _Ctypedef_snd_pcm_uframes_t(frames))
+
+	// Underrun? Retry.
+	if w == -C.EPIPE {
+		C.snd_pcm_prepare(handle.cHandle)
+		w = C.snd_pcm_writei(handle.cHandle, unsafe.Pointer(&buf[0]), _Ctypedef_snd_pcm_uframes_t(frames))
 	}
 
+	if w < 0 {
+		return 0, os.NewError(fmt.Sprintf("Write failed. %s", strError(_Ctype_int(w))))
+	}
+	
+	wrote = int(w)
 	wrote *= handle.FrameSize()
 
 	return wrote, nil
+}
+
+// Pause PCM.
+func (handle *Handle) Pause() os.Error {
+	err := C.snd_pcm_pause(handle.cHandle, 1)
+	if err != 0 {
+		return os.NewError(fmt.Sprintf("Pause failed. %s", strError(err)))
+	}
+
+	return nil
+}
+
+// Unpause PCM.
+func (handle *Handle) Unpause() os.Error {
+	err := C.snd_pcm_pause(handle.cHandle, 0)	
+	if err != 0 {
+		return os.NewError(fmt.Sprintf("Unpause failed. %s", strError(err)))
+	}
+
+	return nil
 }
 
 // Close closes stream and release the handler.
