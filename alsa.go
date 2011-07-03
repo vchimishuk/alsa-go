@@ -183,13 +183,14 @@ func (handle *Handle) ApplyHwParams() os.Error {
 
 // Wait waits till buffer will be free for some new portion of data or
 // delay time is runs out.
-func (handle *Handle) Wait(maxDelay int) os.Error {
-	err := C.snd_pcm_wait(handle.cHandle, _Ctype_int(maxDelay))
-	if err < 0 {
-		return os.NewError(fmt.Sprintf("Pool failed. %s", strError(err)))
+// true ok value means that PCM stream is ready for I/O, false -- timeout occured.
+func (handle *Handle) Wait(maxDelay int) (ok bool, err os.Error) {
+	res, err := C.snd_pcm_wait(handle.cHandle, _Ctype_int(maxDelay))
+	if err != nil {
+		return false, os.NewError(fmt.Sprintf("Pool failed. %s", err))
 	}
 
-	return nil
+	return res > 0, nil
 }
 
 // AvailUpdate returns number of bytes ready to be read/written.
